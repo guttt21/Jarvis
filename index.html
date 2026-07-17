@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>JARVIS</title>
+<style>
+  :root{
+    --bg-deep: #060d1a;
+    --bg-mid: #0a1830;
+    --panel: #0a1424;
+    --line: #16324f;
+    --cyan: #4fd8ff;
+    --cyan-soft: #2a9fd6;
+    --cyan-dim: #144a68;
+    --amber: #ffb454;
+    --text: #cfe6f5;
+    --text-dim: #5c85a0;
+    --danger: #ff5f5f;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 50% 30%, #0f2a4a 0%, var(--bg-mid) 38%, var(--bg-deep) 78%);
+    color:var(--text);
+    font-family: 'Consolas','SF Mono','Segoe UI Mono', monospace;
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+    overflow:hidden;
+    position:relative;
+  }
+  body::after{
+    content:"";
+    position:fixed; inset:0; pointer-events:none; z-index:5;
+    background: repeating-linear-gradient(0deg, rgba(79,216,255,0.015) 0px, rgba(79,216,255,0.015) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode:screen;
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    padding:12px 14px 8px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-shrink:0;
+    z-index:3;
+  }
+  .title{ display:flex; flex-direction:column; line-height:1.1; }
+  .title .name{ font-size:16px; letter-spacing:5px; font-weight:700; color:var(--cyan); text-shadow:0 0 10px rgba(79,216,255,.5); }
+  .title .clock{ font-size:10px; color:var(--text-dim); letter-spacing:1px; margin-top:2px; }
+  .hdr-btn{
+    margin-left:auto;
+    background:none; border:1px solid var(--line); color:var(--text-dim);
+    border-radius:6px; padding:7px 10px; font-size:10px; letter-spacing:1px;
+    font-family:inherit; cursor:pointer;
+  }
+  .hdr-btn:active{ border-color:var(--cyan); color:var(--cyan); }
+
+  /* ---------- MODE SWITCH ---------- */
+  #modeSwitch{
+    display:flex; gap:6px; padding:0 14px 8px; flex-shrink:0; z-index:3;
+  }
+  .mode-btn{
+    flex:1; text-align:center; padding:8px 0; border-radius:8px;
+    border:1px solid var(--line); background:#081426; color:var(--text-dim);
+    font-family:inherit; font-size:11px; letter-spacing:2px; cursor:pointer;
+  }
+  .mode-btn.active{ border-color:var(--cyan-dim); color:var(--cyan); background:rgba(79,216,255,0.08); box-shadow:0 0 10px rgba(79,216,255,.15) inset; }
+
+  /* ---------- HERO / HOLOGRAPHIC ORB ---------- */
+  #hero{
+    position:relative;
+    flex-shrink:0;
+    height:188px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    z-index:2;
+    transition: height .35s ease;
+  }
+  .strip{
+    flex:1;
+    height:132px;
+    overflow:hidden;
+    font-size:8.5px;
+    line-height:13px;
+    color:var(--cyan-soft);
+    opacity:.55;
+    letter-spacing:.5px;
+    padding:0 6px;
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 20%, #000 80%, transparent);
+            mask-image: linear-gradient(180deg, transparent, #000 20%, #000 80%, transparent);
+  }
+  .strip.left{ text-align:right; }
+  .strip.right{ text-align:left; }
+  .strip div{ white-space:nowrap; }
+
+  .orb-wrap{
+    position:relative;
+    width:180px; height:180px;
+    flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition: width .35s ease, height .35s ease;
+  }
+  .orb-wrap svg{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  .ring-dash{ animation: spin 60s linear infinite; transform-origin:80px 80px; }
+  .ring-ticks{ animation: spin 120s linear infinite; transform-origin:80px 80px; }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+  @keyframes spin-rev{ to{ transform:rotate(-360deg);} }
+
+  /* plasma core: layered soft blobs + fine grain for a glowing, slightly noisy sphere */
+  .core{
+    position:absolute; width:64px; height:64px; border-radius:50%;
+    background:
+      radial-gradient(circle at 50% 50%, #ffffff 0%, #eafcff 8%, rgba(120,225,255,.9) 22%, rgba(79,216,255,.55) 45%, rgba(42,159,214,.18) 68%, rgba(42,159,214,0) 78%);
+    box-shadow: 0 0 20px 6px rgba(79,216,255,.5), 0 0 50px 20px rgba(79,216,255,.16);
+    animation: breathe 3.4s ease-in-out infinite;
+    z-index:2;
+  }
+  .core::after{
+    content:"";
+    position:absolute; inset:0; border-radius:50%;
+    background-image: radial-gradient(rgba(255,255,255,.9) 0.5px, transparent 0.5px);
+    background-size: 4px 4px;
+    opacity:.25;
+    animation: grain 1.6s steps(4) infinite;
+    mix-blend-mode: screen;
+  }
+  @keyframes grain{ 0%{ transform:translate(0,0);} 25%{ transform:translate(1px,-1px);} 50%{ transform:translate(-1px,1px);} 75%{ transform:translate(1px,1px);} 100%{ transform:translate(0,0);} }
+  @keyframes breathe{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.08); } }
+  .orb-wrap.listening .core{ animation: pulse-fast 0.7s ease-in-out infinite; }
+  @keyframes pulse-fast{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.22); box-shadow:0 0 28px 10px rgba(79,216,255,.7), 0 0 60px 24px rgba(79,216,255,.26); } }
+  .orb-wrap.thinking .ring-dash{ animation-duration: 3s; }
+  .orb-wrap.speaking .core{ animation: pulse-fast 0.45s ease-in-out infinite; }
+
+  .status{ text-align:center; font-size:10px; letter-spacing:2px; color:var(--text-dim); margin-top:2px; z-index:2; transition: color .2s; }
+  .status.error{ color:var(--danger); }
+
+  #readout{
+    flex-shrink:0;
+    display:flex;
+    justify-content:center;
+    gap:18px;
+    padding:2px 10px 10px;
+    z-index:2;
+  }
+  #readout .stat{ text-align:center; }
+  #readout .stat .v{ font-size:12px; color:var(--cyan); letter-spacing:1px; }
+  #readout .stat .l{ font-size:8px; color:var(--text-dim); letter-spacing:1.5px; margin-top:1px; }
+
+  /* ---------- CHAT AREA ---------- */
+  #log{
+    flex:1;
+    overflow-y:auto;
+    padding:6px 14px 8px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    z-index:2;
+  }
+  .msg{ max-width:88%; font-size:14.5px; line-height:1.5; white-space:pre-wrap; word-wrap:break-word; }
+  .msg .tag{ display:block; font-size:10px; letter-spacing:2px; margin-bottom:4px; color:var(--text-dim); }
+  .msg.user{ align-self:flex-end; text-align:right; }
+  .msg.user .tag{ color:var(--amber); }
+  .msg.user .bubble{ background:rgba(255,180,84,0.08); border:1px solid rgba(255,180,84,0.25); border-radius:10px 10px 2px 10px; padding:10px 12px; backdrop-filter: blur(2px); }
+  .msg.jarvis .tag{ color:var(--cyan); }
+  .msg.jarvis .bubble{ background:rgba(79,216,255,0.07); border:1px solid rgba(79,216,255,0.22); border-radius:10px 10px 10px 2px; padding:10px 12px; backdrop-filter: blur(2px); }
+  .msg.sys{ align-self:center; color:var(--text-dim); font-size:12px; font-style:italic; }
+
+  /* ---------- INPUT BAR ---------- */
+  #bar{
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    border-top:1px solid var(--line);
+    background:rgba(6,13,26,0.85);
+    backdrop-filter: blur(6px);
+    z-index:2;
+  }
+  #txt{
+    flex:1;
+    background:#081426;
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:20px;
+    padding:11px 16px;
+    font-family:inherit;
+    font-size:14.5px;
+    outline:none;
+  }
+  #txt:focus{ border-color:var(--cyan-dim); }
+  .round-btn{
+    width:42px;height:42px;border-radius:50%;
+    border:1px solid var(--line);
+    background:#081426;
+    color:var(--cyan);
+    font-size:17px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    cursor:pointer;
+  }
+  .round-btn:active{ border-color:var(--cyan); }
+  #mic.active{ background:var(--cyan); color:#05080c; box-shadow:0 0 14px var(--cyan); }
+
+  /* ---------- VOICE-ONLY MODE ---------- */
+  body.mode-voice #readout,
+  body.mode-voice #log,
+  body.mode-voice #bar,
+  body.mode-voice .strip{
+    display:none !important;
+  }
+  body.mode-voice #hero{
+    flex:1;
+    height:auto;
+  }
+  body.mode-voice .orb-wrap{
+    width:min(66vw, 280px);
+    height:min(66vw, 280px);
+  }
+  body.mode-voice .core{
+    width:19%; height:19%;
+  }
+  #voiceHint{
+    display:none;
+    text-align:center;
+    font-size:11px;
+    letter-spacing:1.5px;
+    color:var(--text-dim);
+    padding:10px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+  body.mode-voice #voiceHint{ display:block; }
+
+  /* ---------- SETTINGS OVERLAY ---------- */
+  #settings{
+    position:fixed; inset:0; background:rgba(2,5,10,0.94);
+    display:none; align-items:center; justify-content:center; padding:20px; z-index:50;
+  }
+  #settings.open{ display:flex; }
+  .panel{
+    width:100%; max-width:380px;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:20px; max-height:85vh; overflow-y:auto;
+  }
+  .panel h2{ margin:0 0 4px; font-size:15px; letter-spacing:2px; color:var(--cyan); }
+  .panel p{ font-size:12px; color:var(--text-dim); line-height:1.5; margin:4px 0 14px; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:11px; letter-spacing:1px; color:var(--text-dim); margin-bottom:6px; }
+  .field input, .field textarea, .field select{
+    width:100%; background:#081426; border:1px solid var(--line); color:var(--text);
+    border-radius:8px; padding:10px; font-family:inherit; font-size:13px; outline:none;
+  }
+  .field textarea{ resize:vertical; min-height:70px; }
+  .field input:focus, .field textarea:focus, .field select:focus{ border-color:var(--cyan-dim); }
+  .row{ display:flex; gap:10px; }
+  .row .field{ flex:1; }
+  .btn{
+    width:100%; padding:12px; border-radius:8px; border:1px solid var(--cyan-dim);
+    background:rgba(79,216,255,0.08); color:var(--cyan); font-family:inherit;
+    font-size:13px; letter-spacing:1px; cursor:pointer; margin-top:4px;
+  }
+  .btn:active{ background:rgba(79,216,255,0.2); }
+  .btn.danger{ border-color:rgba(255,95,95,0.4); color:var(--danger); background:rgba(255,95,95,0.06); }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); }
+  .toggle-row:first-of-type{ border-top:none; }
+  .toggle-row span{ font-size:13px; }
+  .switch{ position:relative; width:42px; height:24px; }
+  .switch input{ opacity:0; width:0; height:0; }
+  .slider{ position:absolute; inset:0; background:#123047; border-radius:20px; transition:.2s; }
+  .slider::before{ content:""; position:absolute; width:18px; height:18px; left:3px; top:3px; background:var(--text-dim); border-radius:50%; transition:.2s; }
+  input:checked + .slider{ background:var(--cyan-dim); }
+  input:checked + .slider::before{ transform:translateX(18px); background:var(--cyan); }
+
+  ::-webkit-scrollbar{ width:5px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <div class="name">JARVIS</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+  <button class="hdr-btn" id="openSettings">AJUSTES</button>
+</header>
+
+<div id="modeSwitch">
+  <button class="mode-btn" id="modeTextBtn">TEXTO</button>
+  <button class="mode-btn" id="modeVoiceBtn">VOZ</button>
+</div>
+
+<div id="hero">
+  <div class="strip left" id="stripLeft"></div>
+
+  <div class="orb-wrap" id="orb">
+    <svg viewBox="0 0 160 160">
+      <circle cx="80" cy="80" r="52" fill="none" stroke="#4fd8ff" stroke-width="1.1" opacity="0.7"/>
+      <circle class="ring-dash" cx="80" cy="80" r="62" fill="none" stroke="#4fd8ff" stroke-width="1" stroke-dasharray="1 4" opacity="0.55"/>
+      <g class="ring-ticks" id="tickGroup" stroke="#8fe3ff" opacity="0.85"></g>
+    </svg>
+    <div class="core"></div>
+  </div>
+
+  <div class="strip right" id="stripRight"></div>
+</div>
+<div class="status" id="statusLine">en espera</div>
+<div id="voiceHint">toca el círculo para hablar</div>
+
+<div id="readout">
+  <div class="stat"><div class="v" id="statMsgs">0</div><div class="l">MENSAJES</div></div>
+  <div class="stat"><div class="v" id="statModel">SONNET</div><div class="l">MODELO</div></div>
+  <div class="stat"><div class="v" id="statSession">00:00</div><div class="l">SESIÓN</div></div>
+</div>
+
+<div id="log"></div>
+
+<div id="bar">
+  <button class="round-btn" id="mic" title="Hablar">🎤</button>
+  <input id="txt" type="text" placeholder="Escribe o habla..." autocomplete="off" />
+  <button class="round-btn" id="send" title="Enviar">➤</button>
+</div>
+
+<div id="settings">
+  <div class="panel">
+    <h2>CONFIGURACIÓN</h2>
+    <p>Todo se guarda solo en este navegador (localStorage). Tu clave nunca sale de tu teléfono salvo hacia la API de Anthropic.</p>
+
+    <div class="field">
+      <label>CLAVE API DE ANTHROPIC</label>
+      <input id="apiKey" type="password" placeholder="sk-ant-..." />
+    </div>
+
+    <div class="field">
+      <label>PERSONALIDAD (system prompt)</label>
+      <textarea id="persona">Eres JARVIS, el asistente de Tony Stark: leal, ingenioso, ligeramente sarcástico pero siempre útil y preciso. Responde en español, de forma breve y directa salvo que se pida detalle. Trata al usuario como "señor" o por su nombre si lo conoces, con un tono elegante y confiado.</textarea>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>MODELO</label>
+        <select id="model">
+          <option value="claude-sonnet-4-6">Sonnet</option>
+          <option value="claude-opus-4-8">Opus</option>
+          <option value="claude-haiku-4-5-20251001">Haiku</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>IDIOMA DE VOZ</label>
+        <select id="voiceLang">
+          <option value="es-ES">Español (España)</option>
+          <option value="es-MX">Español (México)</option>
+          <option value="es-419">Español (Latam)</option>
+          <option value="en-US">English (US)</option>
+          <option value="en-GB">English (UK)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>VOZ DEL SISTEMA</label>
+      <select id="voiceName"><option value="">(voz por defecto del navegador)</option></select>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>TONO (<span id="pitchVal">0.85</span>)</label>
+        <input id="pitchRange" type="range" min="0.5" max="1.5" step="0.05" value="0.85" />
+      </div>
+      <div class="field">
+        <label>VELOCIDAD (<span id="rateVal">0.95</span>)</label>
+        <input id="rateRange" type="range" min="0.6" max="1.4" step="0.05" value="0.95" />
+      </div>
+    </div>
+    <p style="margin-top:-8px;">No puedo clonar la voz original de Jarvis (es una interpretación con derechos de autor). Elige aquí la voz de tu dispositivo que más se le parezca — normalmente una voz masculina en inglés británico — y ajusta tono/velocidad. Para un timbre más realista, servicios de pago como ElevenLabs ofrecen voces de mayordomo/IA con licencia propia que podrías conectar aparte.</p>
+
+    <div class="toggle-row">
+      <span>Leer respuestas en voz alta</span>
+      <label class="switch"><input type="checkbox" id="ttsToggle" checked><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span>Enviar automáticamente al dictar</span>
+      <label class="switch"><input type="checkbox" id="autoSendToggle" checked><span class="slider"></span></label>
+    </div>
+
+    <button class="btn" id="saveSettings">GUARDAR</button>
+    <button class="btn danger" id="clearMemory">BORRAR MEMORIA</button>
+    <button class="btn" id="closeSettings" style="border-color:var(--line);color:var(--text-dim);">CERRAR</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const log = $('log'), orb = $('orb'), statusLine = $('statusLine');
+  const txt = $('txt'), sendBtn = $('send'), micBtn = $('mic');
+
+  const STORAGE = {
+    key: 'jarvis_api_key',
+    persona: 'jarvis_persona',
+    model: 'jarvis_model',
+    voiceLang: 'jarvis_voice_lang',
+    voiceName: 'jarvis_voice_name',
+    pitch: 'jarvis_pitch',
+    rate: 'jarvis_rate',
+    tts: 'jarvis_tts',
+    autosend: 'jarvis_autosend',
+    history: 'jarvis_history',
+    mode: 'jarvis_mode'
+  };
+
+  const defaults = {
+    persona: $('persona').value,
+    model: 'claude-sonnet-4-6',
+    voiceLang: 'es-ES',
+    voiceName: '',
+    pitch: 0.85,
+    rate: 0.95,
+    tts: true,
+    autosend: true,
+    mode: 'text'
+  };
+
+  // ---------- SYSTEM VOICES ----------
+  let availableVoices = [];
+  function populateVoices(){
+    availableVoices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+    const sel = $('voiceName');
+    const current = localStorage.getItem(STORAGE.voiceName) || '';
+    sel.innerHTML = '<option value="">(voz por defecto del navegador)</option>';
+    // sort: male/British/English-sounding names first, as a hint toward a Jarvis-like tone
+    const hinted = [...availableVoices].sort((a,b) => {
+      const score = v => (/male|daniel|arthur|oliver|george|ryan|uk|gb|british/i.test(v.name) ? -1 : 0) + (/en-GB|en_GB/i.test(v.lang) ? -1 : 0);
+      return score(a) - score(b);
+    });
+    hinted.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v.name;
+      opt.textContent = v.name + ' — ' + v.lang;
+      if(v.name === current) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  }
+  if(window.speechSynthesis){
+    populateVoices();
+    window.speechSynthesis.onvoiceschanged = populateVoices;
+  }
+  $('pitchRange').addEventListener('input', () => $('pitchVal').textContent = $('pitchRange').value);
+  $('rateRange').addEventListener('input', () => $('rateVal').textContent = $('rateRange').value);
+
+  const modelLabels = { 'claude-sonnet-4-6':'SONNET', 'claude-opus-4-8':'OPUS', 'claude-haiku-4-5-20251001':'HAIKU' };
+
+  function loadSettings(){
+    $('apiKey').value = localStorage.getItem(STORAGE.key) || '';
+    $('persona').value = localStorage.getItem(STORAGE.persona) || defaults.persona;
+    $('model').value = localStorage.getItem(STORAGE.model) || defaults.model;
+    $('voiceLang').value = localStorage.getItem(STORAGE.voiceLang) || defaults.voiceLang;
+    $('ttsToggle').checked = (localStorage.getItem(STORAGE.tts) ?? 'true') === 'true';
+    $('autoSendToggle').checked = (localStorage.getItem(STORAGE.autosend) ?? 'true') === 'true';
+    $('pitchRange').value = localStorage.getItem(STORAGE.pitch) || defaults.pitch;
+    $('rateRange').value = localStorage.getItem(STORAGE.rate) || defaults.rate;
+    $('pitchVal').textContent = $('pitchRange').value;
+    $('rateVal').textContent = $('rateRange').value;
+    populateVoices();
+    updateReadout();
+  }
+  function saveSettings(){
+    localStorage.setItem(STORAGE.key, $('apiKey').value.trim());
+    localStorage.setItem(STORAGE.persona, $('persona').value.trim());
+    localStorage.setItem(STORAGE.model, $('model').value);
+    localStorage.setItem(STORAGE.voiceLang, $('voiceLang').value);
+    localStorage.setItem(STORAGE.voiceName, $('voiceName').value);
+    localStorage.setItem(STORAGE.pitch, $('pitchRange').value);
+    localStorage.setItem(STORAGE.rate, $('rateRange').value);
+    localStorage.setItem(STORAGE.tts, $('ttsToggle').checked);
+    localStorage.setItem(STORAGE.autosend, $('autoSendToggle').checked);
+    $('settings').classList.remove('open');
+    setStatus(getKey() ? 'en espera' : 'falta clave API — abre ajustes');
+    updateReadout();
+  }
+  function getKey(){ return localStorage.getItem(STORAGE.key) || ''; }
+
+  function loadHistory(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE.history) || '[]'); }
+    catch(e){ return []; }
+  }
+  function saveHistory(h){
+    const trimmed = h.slice(-40);
+    localStorage.setItem(STORAGE.history, JSON.stringify(trimmed));
+  }
+  let history = loadHistory();
+
+  function setStatus(s, isError){
+    statusLine.textContent = s;
+    statusLine.classList.toggle('error', !!isError);
+  }
+
+  function updateReadout(){
+    $('statMsgs').textContent = history.length;
+    $('statModel').textContent = modelLabels[localStorage.getItem(STORAGE.model) || defaults.model] || 'SONNET';
+  }
+
+  function addMsg(role, text){
+    const wrap = document.createElement('div');
+    wrap.className = 'msg ' + role;
+    if(role === 'sys'){
+      wrap.textContent = text;
+    } else {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = role === 'user' ? 'TÚ' : 'JARVIS';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      wrap.appendChild(tag);
+      wrap.appendChild(bubble);
+    }
+    log.appendChild(wrap);
+    log.scrollTop = log.scrollHeight;
+    return wrap;
+  }
+
+  history.forEach(m => addMsg(m.role === 'user' ? 'user' : 'jarvis', m.content));
+  if(history.length === 0){
+    addMsg('sys', 'Sistema listo. Toca AJUSTES para introducir tu clave API de Anthropic.');
+  }
+  updateReadout();
+
+  // ---------- TICK MARKS (compass style, like the reference) ----------
+  (function buildTicks(){
+    const g = $('tickGroup');
+    const cx = 80, cy = 80, rInner = 68, rOuterMinor = 73, rOuterMajor = 77;
+    const NS = 'http://www.w3.org/2000/svg';
+    const COUNT = 32;
+    for(let i=0;i<COUNT;i++){
+      const angle = (i / COUNT) * Math.PI * 2;
+      const major = i % 4 === 0;
+      const rOuter = major ? rOuterMajor : rOuterMinor;
+      const x1 = cx + Math.sin(angle) * rInner;
+      const y1 = cy - Math.cos(angle) * rInner;
+      const x2 = cx + Math.sin(angle) * rOuter;
+      const y2 = cy - Math.cos(angle) * rOuter;
+      const line = document.createElementNS(NS, 'line');
+      line.setAttribute('x1', x1.toFixed(2));
+      line.setAttribute('y1', y1.toFixed(2));
+      line.setAttribute('x2', x2.toFixed(2));
+      line.setAttribute('y2', y2.toFixed(2));
+      line.setAttribute('stroke-width', major ? '1.6' : '0.7');
+      line.setAttribute('opacity', major ? '0.95' : '0.5');
+      g.appendChild(line);
+    }
+  })();
+
+  // ---------- MODE SWITCH (texto / voz) ----------
+  function applyMode(mode){
+    document.body.classList.toggle('mode-voice', mode === 'voice');
+    $('modeTextBtn').classList.toggle('active', mode === 'text');
+    $('modeVoiceBtn').classList.toggle('active', mode === 'voice');
+    localStorage.setItem(STORAGE.mode, mode);
+  }
+  $('modeTextBtn').addEventListener('click', () => applyMode('text'));
+  $('modeVoiceBtn').addEventListener('click', () => applyMode('voice'));
+  applyMode(localStorage.getItem(STORAGE.mode) || defaults.mode);
+
+  // ---------- CLOCK + SESSION TIMER ----------
+  const sessionStart = Date.now();
+  function tickClock(){
+    const now = new Date();
+    $('clock').textContent = now.toLocaleTimeString('es-ES', {hour12:false});
+    const secs = Math.floor((Date.now() - sessionStart)/1000);
+    const mm = String(Math.floor(secs/60)).padStart(2,'0');
+    const ss = String(secs%60).padStart(2,'0');
+    $('statSession').textContent = mm+':'+ss;
+  }
+  tickClock();
+  setInterval(tickClock, 1000);
+
+  // ---------- DECORATIVE TELEMETRY STRIPS ----------
+  function hex(n){ return Math.floor(Math.random()*n).toString(16).toUpperCase().padStart(4,'0'); }
+  function fillStrip(el, lines){
+    el.innerHTML = '';
+    for(let i=0;i<lines;i++){
+      const d = document.createElement('div');
+      d.textContent = 'SYS·' + hex(65535) + ' :: ' + hex(255);
+      el.appendChild(d);
+    }
+  }
+  fillStrip($('stripLeft'), 10);
+  fillStrip($('stripRight'), 10);
+  setInterval(() => { fillStrip($('stripLeft'), 10); fillStrip($('stripRight'), 10); }, 2200);
+
+  // ---------- CALL CLAUDE DIRECTLY FROM BROWSER ----------
+  async function askJarvis(userText){
+    const key = getKey();
+    if(!key){
+      addMsg('sys', 'Falta tu clave API. Ábrela en AJUSTES.');
+      setStatus('falta clave API', true);
+      $('settings').classList.add('open');
+      return;
+    }
+    history.push({role:'user', content:userText});
+    saveHistory(history);
+    updateReadout();
+
+    orb.classList.add('thinking');
+    setStatus('pensando...');
+
+    try{
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'x-api-key': key,
+          'anthropic-version':'2023-06-01',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body: JSON.stringify({
+          model: localStorage.getItem(STORAGE.model) || defaults.model,
+          max_tokens: 1024,
+          system: localStorage.getItem(STORAGE.persona) || defaults.persona,
+          messages: history.map(m => ({role:m.role, content:m.content}))
+        })
+      });
+
+      if(!res.ok){
+        const errBody = await res.text();
+        throw new Error('HTTP ' + res.status + ': ' + errBody.slice(0,200));
+      }
+
+      const data = await res.json();
+      const reply = (data.content || [])
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('\n')
+        .trim() || '(sin respuesta de texto)';
+
+      history.push({role:'assistant', content:reply});
+      saveHistory(history);
+      updateReadout();
+      addMsg('jarvis', reply);
+      speak(reply);
+    }catch(err){
+      addMsg('sys', 'Error al contactar a Claude: ' + err.message);
+      setStatus('error de conexión', true);
+    }finally{
+      orb.classList.remove('thinking');
+      if(!statusLine.classList.contains('error')) setStatus('en espera');
+    }
+  }
+
+  function sendCurrentText(){
+    const v = txt.value.trim();
+    if(!v) return;
+    addMsg('user', v);
+    txt.value = '';
+    askJarvis(v);
+  }
+  sendBtn.addEventListener('click', sendCurrentText);
+  txt.addEventListener('keydown', e => { if(e.key === 'Enter'){ sendCurrentText(); } });
+
+  // ---------- SPEECH TO TEXT ----------
+  let recognition = null;
+  let listening = false;
+  const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if(SpeechRecognitionAPI){
+    recognition = new SpeechRecognitionAPI();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      listening = true;
+      orb.classList.add('listening');
+      micBtn.classList.add('active');
+      setStatus('escuchando...');
+    };
+    recognition.onresult = (event) => {
+      const said = event.results[0][0].transcript;
+      txt.value = said;
+      if((localStorage.getItem(STORAGE.autosend) ?? 'true') === 'true'){
+        addMsg('user', said);
+        txt.value = '';
+        askJarvis(said);
+      }
+    };
+    recognition.onerror = (e) => { setStatus('error de voz: ' + e.error, true); };
+    recognition.onend = () => {
+      listening = false;
+      orb.classList.remove('listening');
+      micBtn.classList.remove('active');
+      if(statusLine.textContent === 'escuchando...') setStatus('en espera');
+    };
+  } else {
+    micBtn.style.opacity = 0.35;
+  }
+
+  function startListening(){
+    if(!recognition){
+      if(document.body.classList.contains('mode-voice')){
+        setStatus('voz no soportada en este navegador', true);
+      } else {
+        addMsg('sys', 'Este navegador no soporta reconocimiento de voz. Puedes escribir igualmente.');
+      }
+      return;
+    }
+    if(listening){ recognition.stop(); return; }
+    recognition.lang = localStorage.getItem(STORAGE.voiceLang) || defaults.voiceLang;
+    try{ recognition.start(); }catch(e){}
+  }
+  micBtn.addEventListener('click', startListening);
+  orb.addEventListener('click', () => {
+    if(document.body.classList.contains('mode-voice')) startListening();
+  });
+
+  // ---------- TEXT TO SPEECH ----------
+  function speak(text){
+    const on = (localStorage.getItem(STORAGE.tts) ?? 'true') === 'true';
+    if(!on || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = localStorage.getItem(STORAGE.voiceLang) || defaults.voiceLang;
+    u.rate = parseFloat(localStorage.getItem(STORAGE.rate) || defaults.rate);
+    u.pitch = parseFloat(localStorage.getItem(STORAGE.pitch) || defaults.pitch);
+    const chosenName = localStorage.getItem(STORAGE.voiceName) || '';
+    if(chosenName){
+      const v = availableVoices.find(v => v.name === chosenName);
+      if(v) u.voice = v;
+    }
+    u.onstart = () => { orb.classList.add('speaking'); setStatus('respondiendo...'); };
+    u.onend = () => { orb.classList.remove('speaking'); if(!statusLine.classList.contains('error')) setStatus('en espera'); };
+    window.speechSynthesis.speak(u);
+  }
+
+  // ---------- SETTINGS PANEL ----------
+  $('openSettings').addEventListener('click', () => { loadSettings(); $('settings').classList.add('open'); });
+  $('closeSettings').addEventListener('click', () => $('settings').classList.remove('open'));
+  $('saveSettings').addEventListener('click', saveSettings);
+  $('clearMemory').addEventListener('click', () => {
+    if(confirm('¿Borrar toda la memoria de conversación?')){
+      history = [];
+      localStorage.removeItem(STORAGE.history);
+      log.innerHTML = '';
+      addMsg('sys', 'Memoria borrada.');
+      updateReadout();
+    }
+  });
+
+  loadSettings();
+  setStatus(getKey() ? 'en espera' : 'falta clave API — abre ajustes');
+})();
+</script>
+</body>
+</html>
